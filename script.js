@@ -773,7 +773,7 @@ function shareOnTwitter(quoteText, authorName) {
   const text = `"${quote}" — ${author || "Unknown"}`;
   const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
     text
-  )}&hashtags=QuotifyNotes`;
+  )}&hashtags=Qive, QiveQuotes, DailyQuotes`;
   window.open(url, "_blank");
 }
 
