@@ -1,6 +1,6 @@
 // ============ CONFIG ============
 const QUOTES_API_KEY = "tBEAzH8EoZjhGeoVP5qnEQ==YJ30wWOBGVGjmYgc"; // <-- put your API Ninjas key
-const QUOTES_API_URL = "https://api.api-ninjas.com/v2/quotes";
+const QUOTES_API_URL = "https://api.api-ninjas.com/v2/randomquotes";
 const WIKI_API_BASE = "https://en.wikipedia.org/api/rest_v1/page/summary/";
 
 // Only these categories, random between them on each fetch (v2 behavior)
@@ -37,6 +37,7 @@ const authorInitialsEl = document.getElementById("authorInitials");
 
 // Context panel elements
 const authorBioEl = document.getElementById("authorBio");
+const authorReadMoreEl = document.getElementById("authorReadMore");
 const quoteApplicationEl = document.getElementById("quoteApplication");
 const reflectionListEl = document.getElementById("reflectionList");
 
@@ -87,9 +88,9 @@ let currentQuoteObject = null;  // Store the current quote data
 let isUsingFallbackAPI = false; // Track if we're using fallback API
 
 // LocalStorage keys for persistent data
-const SAVED_KEY = "quotify_saved_quotes_v1";   // Saved quotes storage key
+const SAVED_KEY = "quotify_saved_quotes_v1";      // Saved quotes storage key
 const JOURNAL_KEY = "quotify_journal_entries_v1"; // Journal notes storage key
-const SETTINGS_KEY = "quotify_settings_v1";    // User preferences storage key
+const SETTINGS_KEY = "quotify_settings_v1";       // User preferences storage key
 
 // Map fontStyle values -> CSS classes on <body>
 const FONT_CLASS_MAP = {
@@ -121,8 +122,6 @@ function applyFontStyle(styleKey) {
 
 /**
  * Format category text to be more readable
- * @param {string} cat - The category string to format
- * @returns {string} - Formatted category string
  */
 function prettifyCategory(cat) {
   if (!cat) return "General";
@@ -137,6 +136,10 @@ function setLoadingState() {
   quoteTextEl.style.opacity = "0.5";
   quoteTextEl.textContent = "Finding something worth reading…";
   authorBioEl.textContent = "Looking up the author for some context…";
+
+  if (authorReadMoreEl) {
+    authorReadMoreEl.classList.add("hidden");
+  }
 
   // Clear journaling input and reset analysis
   reflectionInputEl.value = "";
@@ -175,8 +178,6 @@ function updateQuoteCount() {
 
 /**
  * Extract initials from author name for avatar display
- * @param {string} name - The author's full name
- * @returns {string} - First letter of first and last name
  */
 function initialsFromName(name) {
   return name
@@ -192,7 +193,6 @@ let toastTimeout;
 
 /**
  * Show a temporary toast notification to the user
- * @param {string} msg - The message to display in the toast
  */
 function showToast(msg) {
   toastEl.textContent = msg;
@@ -209,8 +209,7 @@ function showToast(msg) {
 function loadSettings() {
   const raw = localStorage.getItem(SETTINGS_KEY);
   if (!raw) {
-    // No saved settings → ensure defaults
-    if (fontStyleSelect) fontStyleSelect.value = "sans";   // DM Sans
+    if (fontStyleSelect) fontStyleSelect.value = "sans";
     if (textSizeSelect) textSizeSelect.value = "normal";
     if (themeSelect) themeSelect.value = "light";
 
@@ -226,19 +225,15 @@ function loadSettings() {
     // ----- FONT STYLE -----
     let fontStyle = settings.fontStyle || "sans";
 
-    // Backwards compatibility with old values
-    // Old keys: crimson, dmserif, cormorant, literata, sans, serif
-    if (fontStyle === "crimson") fontStyle = "cormorant";   // serif → Cormorant SC
-    if (fontStyle === "dmserif") fontStyle = "cormorant";   // serif → Cormorant SC
-    if (fontStyle === "literata") fontStyle = "sans";       // booky serif → DM Sans
-    if (fontStyle === "serif") fontStyle = "cormorant";     // generic serif → Cormorant SC
-    // old "cormorant" can stay as "cormorant"
-    if (fontStyle === "sans") fontStyle = "sans";           // keep DM Sans
+    if (fontStyle === "crimson") fontStyle = "cormorant";
+    if (fontStyle === "dmserif") fontStyle = "cormorant";
+    if (fontStyle === "literata") fontStyle = "sans";
+    if (fontStyle === "serif") fontStyle = "cormorant";
+    if (fontStyle === "sans") fontStyle = "sans";
 
-    // Allowed new values
     const allowedFontStyles = ["sans", "inter", "cormorant", "kalam", "comic"];
     if (!allowedFontStyles.includes(fontStyle)) {
-      fontStyle = "sans"; // fallback to default
+      fontStyle = "sans";
     }
 
     if (fontStyleSelect) {
@@ -289,11 +284,9 @@ function saveSettings() {
  * Apply current settings to the UI
  */
 function applySettings() {
-  // ----- FONT STYLE -----
   const fontStyle = fontStyleSelect ? fontStyleSelect.value : "sans";
   applyFontStyle(fontStyle);
 
-  // ----- TEXT SIZE -----
   if (textSizeSelect) {
     document.body.classList.toggle(
       "text-large",
@@ -301,20 +294,17 @@ function applySettings() {
     );
   }
 
-  // ----- THEME -----
   if (themeSelect) {
     document.body.setAttribute("data-theme", themeSelect.value);
   }
 
-  // ----- SAVE -----
   saveSettings();
 }
 
 // ============ QUOTE FETCHING AND DISPLAY ============
 
 /**
- * Fetch a new quote from the primary API (API Ninjas v2), using
- * ONLY the allowed categories and picking one at random.
+ * Fetch a new quote from the primary API (API Ninjas v2)
  */
 async function fetchQuote() {
   if (isLoading) return;
@@ -323,11 +313,9 @@ async function fetchQuote() {
   isUsingFallbackAPI = false;
 
   try {
-    // pick a random category from the fixed list
     const randomCategory =
       QUOTE_CATEGORIES[Math.floor(Math.random() * QUOTE_CATEGORIES.length)];
 
-    // v2 uses ?categories= (plural)
     const url = `${QUOTES_API_URL}?categories=${encodeURIComponent(
       randomCategory
     )}`;
@@ -350,7 +338,6 @@ async function fetchQuote() {
 
     const quoteObj = data[0];
 
-    // If API doesn't send category back, make sure we keep our random one
     const finalQuoteObj = {
       ...quoteObj,
       category: quoteObj.category || randomCategory,
@@ -358,20 +345,16 @@ async function fetchQuote() {
 
     currentQuoteObject = finalQuoteObj;
 
-    // Update UI with new quote
     renderQuote(finalQuoteObj);
     updateQuoteCount();
 
-    // Fetch additional context and generate reflections
     const authorName = finalQuoteObj.author;
     await fetchAuthorContext(authorName);
     generateApplicationAndReflection(finalQuoteObj.quote);
 
-    // Load any existing journal entry for this quote
     loadJournalEntry(finalQuoteObj.quote, authorName);
   } catch (err) {
     console.error("Primary API failed:", err);
-    // Try fallback API if primary fails
     await fetchQuoteFallback();
   } finally {
     clearLoadingState();
@@ -385,7 +368,7 @@ async function fetchQuoteFallback() {
   try {
     isUsingFallbackAPI = true;
     showToast("Primary source is down, pulling from backup source.");
-    
+
     const url = "https://api.quotable.io/random";
     const res = await fetch(url);
 
@@ -397,32 +380,31 @@ async function fetchQuoteFallback() {
     currentQuoteObject = {
       quote: quoteObj.content,
       author: quoteObj.author,
-      category: quoteObj.tags ? quoteObj.tags[0] : "General"
+      category: quoteObj.tags ? quoteObj.tags[0] : "General",
     };
 
-    // Update UI with fallback quote
     renderQuote(currentQuoteObject);
     updateQuoteCount();
 
     const authorName = quoteObj.author;
     await fetchAuthorContext(authorName);
     generateApplicationAndReflection(quoteObj.content);
-    
-    // Load any existing journal entry for this quote
+
     loadJournalEntry(quoteObj.content, authorName);
   } catch (err) {
     console.error("Fallback API also failed:", err);
-    // Show error state in UI
-    quoteTextEl.textContent = "We couldn't fetch a quote right now. Try again in a moment.";
+    quoteTextEl.textContent =
+      "We couldn't fetch a quote right now. Try again in a moment.";
     quoteAuthorEl.textContent = "System";
     authorInitialsEl.textContent = "!";
-    authorBioEl.textContent = "No author context available at the moment.";
+    authorBioEl.textContent =
+      "No author context available at the moment.";
+    if (authorReadMoreEl) authorReadMoreEl.classList.add("hidden");
   }
 }
 
 /**
  * Render a quote object to the UI
- * @param {Object} quoteObj - The quote object containing text, author, and category
  */
 function renderQuote(quoteObj) {
   const { quote, author, category } = quoteObj;
@@ -430,69 +412,174 @@ function renderQuote(quoteObj) {
   quoteTextEl.textContent = quote || "No quote text provided.";
   quoteAuthorEl.textContent = author || "Unknown";
 
-  // Update category display
   quoteCategoryEl.textContent = category
     ? prettifyCategory(category)
     : "General";
 
-  // Update author avatar initials
   const initials = initialsFromName(author || "Unknown");
   authorInitialsEl.textContent = initials || "QV";
-  
-  // Analyze the quote for insights
+
   analyzeQuote(quote);
 }
 
-// ============ AUTHOR CONTEXT FETCHING ============
+// ============ AUTHOR CONTEXT (WIKIPEDIA + SEARCH) ============
 
 /**
- * Fetch author biography from Wikipedia
- * @param {string} authorName - The name of the author to look up
+ * Fetch author biography using Wikipedia with search fallback.
  */
 async function fetchAuthorContext(authorName) {
-  if (!authorName || authorName.toLowerCase() === "unknown") {
-    authorBioEl.textContent = "No author information is attached to this quote.";
+  if (!authorName || typeof authorName !== "string") {
+    authorBioEl.textContent =
+      "No author information is attached to this quote.";
+    if (authorReadMoreEl) authorReadMoreEl.classList.add("hidden");
+    return;
+  }
+
+  const cleaned = authorName.trim();
+  if (!cleaned || cleaned.toLowerCase() === "unknown") {
+    authorBioEl.textContent =
+      "No author information is attached to this quote.";
+    if (authorReadMoreEl) authorReadMoreEl.classList.add("hidden");
     return;
   }
 
   try {
-    const bio = await getWikiSummary(authorName);
+    const info = await getAuthorSummary(cleaned);
 
-    // Update bio display
-    if (bio) {
-      authorBioEl.textContent = bio;
+    if (info && info.summary) {
+      renderAuthorBio(info.summary, info.url, info.truncated);
     } else {
-      authorBioEl.textContent = "Couldn't find a compact biography, but this author is well-cited in modern quote collections.";
+      authorBioEl.textContent =
+        "Couldn't find a compact biography, but this author is well-cited in modern quote collections.";
+      if (authorReadMoreEl) authorReadMoreEl.classList.add("hidden");
     }
   } catch (err) {
-    console.error(err);
-    authorBioEl.textContent = "Couldn't find a compact biography, but this author is well-cited in modern quote collections.";
+    console.error("Author context error:", err);
+    authorBioEl.textContent =
+      "Couldn't find a compact biography, but this author is well-cited in modern quote collections.";
+    if (authorReadMoreEl) authorReadMoreEl.classList.add("hidden");
   }
 }
 
 /**
- * Get Wikipedia summary for a given author
- * @param {string} authorName - The name of the author to look up
- * @returns {string|null} - The extracted biography or null if not found
+ * Try to get an author summary using Wikipedia (with search fallback).
  */
-async function getWikiSummary(authorName) {
+async function getAuthorSummary(authorName) {
+  const wikiSummary = await getWikiSummaryFromWikipedia(authorName);
+  return wikiSummary || null;
+}
+
+/**
+ * Get Wikipedia summary for a given author.
+ */
+async function getWikiSummaryFromWikipedia(authorName) {
   try {
-    const title = encodeURIComponent(authorName.replace(/\s+/g, "_"));
-    const url = `${WIKI_API_BASE}${title}`;
-    const res = await fetch(url);
+    if (!authorName) return null;
 
-    if (!res.ok) return null;
+    let base = authorName
+      .replace(/\s+/g, " ")
+      .replace(/[.,]$/g, "")
+      .trim();
 
-    const data = await res.json();
-    if (data.extract && typeof data.extract === "string" && data.extract.length > 0) {
-      // Keep biography concise
-      return data.extract.length > 450
-        ? data.extract.slice(0, 430) + "…"
-        : data.extract;
+    base = base.split("(")[0].split(",")[0].trim();
+    if (!base) return null;
+
+    const parts = base.split(" ");
+    const firstLast =
+      parts.length >= 2 ? `${parts[0]} ${parts[parts.length - 1]}` : base;
+
+    const candidateTitles = Array.from(
+      new Set([base, firstLast])
+    ).map((title) => title.replace(/\s+/g, "_"));
+
+    async function fetchSummaryForTitle(title) {
+      const url = `${WIKI_API_BASE}${encodeURIComponent(
+        title
+      )}?redirect=true`;
+
+      const res = await fetch(url);
+      if (!res.ok) return null;
+
+      const data = await res.json();
+      if (
+        data &&
+        typeof data.extract === "string" &&
+        data.extract.trim().length > 0
+      ) {
+        const extract = data.extract.trim();
+        let truncated = extract;
+        let truncatedFlag = false;
+
+        if (extract.length > 450) {
+          truncated = extract.slice(0, 430).trimEnd() + "…";
+          truncatedFlag = true;
+        }
+
+        const pageUrl =
+          (data.content_urls &&
+            data.content_urls.desktop &&
+            data.content_urls.desktop.page) ||
+          `https://en.wikipedia.org/wiki/${encodeURIComponent(title)}`;
+
+        return {
+          summary: truncated,
+          url: pageUrl,
+          truncated: truncatedFlag,
+        };
+      }
+      return null;
     }
+
+    // Try direct summary
+    for (const title of candidateTitles) {
+      const result = await fetchSummaryForTitle(title);
+      if (result) return result;
+    }
+
+    // Search API fallback
+    const searchUrl =
+      `https://en.wikipedia.org/w/api.php?` +
+      `action=query&list=search&srsearch=${encodeURIComponent(
+        base
+      )}&format=json&origin=*`;
+
+    const searchRes = await fetch(searchUrl);
+    if (!searchRes.ok) return null;
+
+    const searchData = await searchRes.json();
+    const hits =
+      searchData &&
+      searchData.query &&
+      Array.isArray(searchData.query.search)
+        ? searchData.query.search
+        : [];
+
+    if (!hits.length) return null;
+
+    const bestTitle = hits[0].title;
+    if (!bestTitle) return null;
+
+    const finalSummary = await fetchSummaryForTitle(bestTitle);
+    return finalSummary;
+  } catch (err) {
+    console.error("Error in getWikiSummaryFromWikipedia:", err);
     return null;
-  } catch {
-    return null;
+  }
+}
+
+/**
+ * Render the author biography and handle "Read more" link visibility.
+ */
+function renderAuthorBio(summary, url, truncated) {
+  authorBioEl.textContent = summary;
+
+  if (!authorReadMoreEl) return;
+
+  if (url && truncated) {
+    authorReadMoreEl.href = url;
+    authorReadMoreEl.classList.remove("hidden");
+  } else {
+    authorReadMoreEl.classList.add("hidden");
   }
 }
 
@@ -500,136 +587,154 @@ async function getWikiSummary(authorName) {
 
 /**
  * Analyze a quote and update the analysis panel
- * @param {string} quoteText - The quote text to analyze
  */
 function analyzeQuote(quoteText) {
   if (!quoteText) return;
-  
-  // Word count analysis
+
   const words = quoteText.trim().split(/\s+/).length;
   wordCountEl.textContent = words;
-  
-  // Reading time calculation (assuming 200 words per minute)
+
   const readingTimeMinutes = words / 200;
   const readingTimeSeconds = Math.ceil(readingTimeMinutes * 60);
-  readingTimeEl.textContent = readingTimeSeconds <= 60 ? 
-    `${readingTimeSeconds}s` : 
-    `${Math.ceil(readingTimeMinutes)}min`;
-  
-  // Sentiment analysis
+  readingTimeEl.textContent =
+    readingTimeSeconds <= 60
+      ? `${readingTimeSeconds}s`
+      : `${Math.ceil(readingTimeMinutes)}min`;
+
   const sentiment = analyzeSentiment(quoteText);
   sentimentScoreEl.textContent = sentiment.score;
   sentimentScoreEl.className = `analysis-value sentiment-${sentiment.label}`;
-  
-  // Complexity analysis
+
   const complexity = analyzeComplexity(quoteText);
   complexityLevelEl.textContent = complexity.level;
   complexityLevelEl.className = `analysis-value complexity-${complexity.level}`;
-  
-  // Theme detection
+
   const themes = detectThemes(quoteText);
   renderThemeTags(themes);
 }
 
 /**
  * Simple sentiment analysis based on keyword matching
- * @param {string} text - The text to analyze
- * @returns {Object} - Sentiment score and label
  */
 function analyzeSentiment(text) {
-  // Define positive and negative word lists
-  const positiveWords = ['love', 'happy', 'great', 'beautiful', 'wonderful', 'amazing', 'best', 'excellent', 'fantastic', 'perfect', 'joy', 'peace', 'hope', 'success', 'win', 'achievement'];
-  const negativeWords = ['hate', 'sad', 'terrible', 'awful', 'horrible', 'worst', 'bad', 'failure', 'lost', 'pain', 'suffering', 'death', 'fear', 'angry', 'mad'];
-  
+  const positiveWords = [
+    "love",
+    "happy",
+    "great",
+    "beautiful",
+    "wonderful",
+    "amazing",
+    "best",
+    "excellent",
+    "fantastic",
+    "perfect",
+    "joy",
+    "peace",
+    "hope",
+    "success",
+    "win",
+    "achievement",
+  ];
+  const negativeWords = [
+    "hate",
+    "sad",
+    "terrible",
+    "awful",
+    "horrible",
+    "worst",
+    "bad",
+    "failure",
+    "lost",
+    "pain",
+    "suffering",
+    "death",
+    "fear",
+    "angry",
+    "mad",
+  ];
+
   const words = text.toLowerCase().split(/\s+/);
   let positiveCount = 0;
   let negativeCount = 0;
-  
-  // Count positive and negative words
-  words.forEach(word => {
-    if (positiveWords.some(pw => word.includes(pw))) positiveCount++;
-    if (negativeWords.some(nw => word.includes(nw))) negativeCount++;
+
+  words.forEach((word) => {
+    if (positiveWords.some((pw) => word.includes(pw))) positiveCount++;
+    if (negativeWords.some((nw) => word.includes(nw))) negativeCount++;
   });
-  
+
   const total = positiveCount + negativeCount;
-  if (total === 0) return { score: 'Neutral', label: 'neutral' };
-  
-  // Calculate sentiment ratio
+  if (total === 0) return { score: "Neutral", label: "neutral" };
+
   const ratio = positiveCount / total;
-  
-  if (ratio > 0.6) return { score: 'Positive', label: 'positive' };
-  if (ratio < 0.4) return { score: 'Negative', label: 'negative' };
-  return { score: 'Neutral', label: 'neutral' };
+
+  if (ratio > 0.6) return { score: "Positive", label: "positive" };
+  if (ratio < 0.4) return { score: "Negative", label: "negative" };
+  return { score: "Neutral", label: "neutral" };
 }
 
 /**
  * Analyze text complexity based on sentence and word length
- * @param {string} text - The text to analyze
- * @returns {Object} - Complexity level and score
  */
 function analyzeComplexity(text) {
   const words = text.split(/\s+/);
-  const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+  const sentences = text
+    .split(/[.!?]+/)
+    .filter((s) => s.trim().length > 0);
   const avgSentenceLength = words.length / sentences.length;
-  const avgWordLength = text.replace(/[^a-zA-Z]/g, '').length / words.length;
-  
-  // Calculate complexity score
-  let complexityScore = (avgSentenceLength * 0.5) + (avgWordLength * 0.5);
-  
-  // Classify complexity level
-  if (complexityScore < 4) return { level: 'Simple', score: complexityScore };
-  if (complexityScore < 6) return { level: 'Medium', score: complexityScore };
-  return { level: 'Complex', score: complexityScore };
+  const avgWordLength =
+    text.replace(/[^a-zA-Z]/g, "").length / words.length;
+
+  let complexityScore = avgSentenceLength * 0.5 + avgWordLength * 0.5;
+
+  if (complexityScore < 4)
+    return { level: "Simple", score: complexityScore };
+  if (complexityScore < 6)
+    return { level: "Medium", score: complexityScore };
+  return { level: "Complex", score: complexityScore };
 }
 
 /**
  * Detect themes in the quote text based on keyword patterns
- * @param {string} text - The text to analyze for themes
- * @returns {Array} - Array of detected themes (max 3)
  */
 function detectThemes(text) {
   const lowerText = text.toLowerCase();
   const themes = [];
-  
-  // Theme patterns with associated keywords
+
   const themePatterns = {
-    'Wisdom': ['wisdom', 'knowledge', 'learn', 'understand', 'truth'],
-    'Love': ['love', 'heart', 'care', 'affection', 'compassion'],
-    'Success': ['success', 'achieve', 'win', 'victory', 'goal', 'dream'],
-    'Time': ['time', 'moment', 'past', 'future', 'present', 'now'],
-    'Courage': ['courage', 'brave', 'fear', 'risk', 'bold'],
-    'Work': ['work', 'effort', 'labor', 'persistence', 'hard'],
-    'Life': ['life', 'live', 'experience', 'journey', 'path'],
-    'Hope': ['hope', 'faith', 'believe', 'optimism', 'positive'],
-    'Change': ['change', 'grow', 'evolve', 'transform', 'become']
+    Wisdom: ["wisdom", "knowledge", "learn", "understand", "truth"],
+    Love: ["love", "heart", "care", "affection", "compassion"],
+    Success: ["success", "achieve", "win", "victory", "goal", "dream"],
+    Time: ["time", "moment", "past", "future", "present", "now"],
+    Courage: ["courage", "brave", "fear", "risk", "bold"],
+    Work: ["work", "effort", "labor", "persistence", "hard"],
+    Life: ["life", "live", "experience", "journey", "path"],
+    Hope: ["hope", "faith", "believe", "optimism", "positive"],
+    Change: ["change", "grow", "evolve", "transform", "become"],
   };
-  
-  // Check for each theme
+
   Object.entries(themePatterns).forEach(([theme, keywords]) => {
-    if (keywords.some(keyword => lowerText.includes(keyword))) {
+    if (keywords.some((keyword) => lowerText.includes(keyword))) {
       themes.push(theme);
     }
   });
-  
-  // Fallback themes if none detected
+
   if (themes.length === 0) {
-    if (text.length < 50) themes.push('Reflection');
-    else if (text.length > 150) themes.push('Philosophy');
-    else themes.push('Inspiration');
+    if (text.length < 50) themes.push("Reflection");
+    else if (text.length > 150) themes.push("Philosophy");
+    else themes.push("Inspiration");
   }
-  
-  return themes.slice(0, 3); // Return max 3 themes
+
+  return themes.slice(0, 3);
 }
 
 /**
- * Render theme tags to the UI
- * @param {Array} themes - Array of theme strings to display
+ * Render theme tags
  */
 function renderThemeTags(themes) {
-  themeTagsEl.innerHTML = '';
-  themes.forEach(theme => {
-    const tag = document.createElement('span');
-    tag.className = 'theme-tag';
+  themeTagsEl.innerHTML = "";
+  themes.forEach((theme) => {
+    const tag = document.createElement("span");
+    tag.className = "theme-tag";
     tag.textContent = theme;
     themeTagsEl.appendChild(tag);
   });
@@ -639,48 +744,78 @@ function renderThemeTags(themes) {
  * Toggle visibility of the analysis panel
  */
 function toggleAnalysis() {
-  analysisContent.classList.toggle('hidden');
-  toggleAnalysisBtn.textContent = analysisContent.classList.contains('hidden') ? 
-    'Show Details' : 'Hide Details';
+  analysisContent.classList.toggle("hidden");
+  toggleAnalysisBtn.textContent = analysisContent.classList.contains(
+    "hidden"
+  )
+    ? "Show Details"
+    : "Hide Details";
 }
 
 // ============ SOCIAL SHARING FUNCTIONALITY ============
 
 /**
- * Share quote on Twitter
+ * Share on Twitter (X)
+ * Can be used for current quote OR a saved quote.
  */
-function shareOnTwitter() {
-  if (!currentQuoteObject) return;
-  
-  const text = `"${currentQuoteObject.quote}" — ${currentQuoteObject.author}`;
-  const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&hashtags=QuotifyNotes`;
-  window.open(url, '_blank');
+function shareOnTwitter(quoteText, authorName) {
+  const quote =
+    typeof quoteText === "string"
+      ? quoteText
+      : currentQuoteObject?.quote;
+  const author =
+    typeof authorName === "string"
+      ? authorName
+      : currentQuoteObject?.author;
+
+  if (!quote) return;
+
+  const text = `"${quote}" — ${author || "Unknown"}`;
+  const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
+    text
+  )}&hashtags=QuotifyNotes`;
+  window.open(url, "_blank");
 }
 
 /**
- * Share quote on Threads
+ * Share on Threads
  */
-function shareOnThreads() {
-  if (!currentQuoteObject) return;
-  
-  const text = `"${currentQuoteObject.quote}" — ${currentQuoteObject.author}`;
-  // Threads uses a similar sharing mechanism to Twitter
-  const url = `https://threads.net/intent/post?text=${encodeURIComponent(text)}`;
-  window.open(url, '_blank');
+function shareOnThreads(quoteText, authorName) {
+  const quote =
+    typeof quoteText === "string"
+      ? quoteText
+      : currentQuoteObject?.quote;
+  const author =
+    typeof authorName === "string"
+      ? authorName
+      : currentQuoteObject?.author;
+
+  if (!quote) return;
+
+  const text = `"${quote}" — ${author || "Unknown"}`;
+  const url = `https://threads.net/intent/post?text=${encodeURIComponent(
+    text
+  )}`;
+  window.open(url, "_blank");
 }
 
 /**
- * Copy quote as a designed image (PNG) to clipboard.
- * Falls back to downloading the image if clipboard image is not supported.
+ * Copy quote as a designed image (PNG) to clipboard or download
+ * Can be used for current quote OR a saved quote.
  */
-async function copyAsImage() {
-  if (!currentQuoteObject) return;
+async function copyAsImage(quoteText, authorName) {
+  const quote =
+    typeof quoteText === "string"
+      ? quoteText
+      : currentQuoteObject?.quote || "";
+  const author =
+    typeof authorName === "string"
+      ? authorName
+      : currentQuoteObject?.author || "Unknown";
+
+  if (!quote) return;
 
   try {
-    const quote = currentQuoteObject.quote || "";
-    const author = currentQuoteObject.author || "Unknown";
-
-    // Create canvas
     const canvas = document.createElement("canvas");
     const width = 900;
     const height = 450;
@@ -688,14 +823,12 @@ async function copyAsImage() {
     canvas.height = height;
     const ctx = canvas.getContext("2d");
 
-    // -------- Background gradient --------
     const bgGrad = ctx.createLinearGradient(0, 0, width, height);
     bgGrad.addColorStop(0, "#111827");
     bgGrad.addColorStop(1, "#4b5563");
     ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, width, height);
 
-    // -------- Card background --------
     const cardX = 36;
     const cardY = 36;
     const cardW = width - cardX * 2;
@@ -716,7 +849,6 @@ async function copyAsImage() {
       ctx.closePath();
     }
 
-    // Card shadow
     ctx.save();
     ctx.shadowColor = "rgba(15, 23, 42, 0.45)";
     ctx.shadowBlur = 24;
@@ -726,12 +858,10 @@ async function copyAsImage() {
     ctx.fill();
     ctx.restore();
 
-    // -------- Quote text --------
     const paddingX = cardX + 40;
     const paddingY = cardY + 70;
     const maxTextWidth = cardW - 80;
 
-    // Helper for wrapping text
     function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
       const words = text.split(/\s+/);
       let line = "";
@@ -754,24 +884,27 @@ async function copyAsImage() {
       return currentY + lineHeight;
     }
 
-    // Big quote marks
     ctx.fillStyle = "rgba(148, 163, 184, 0.6)";
     ctx.font = '64px "DM Serif Text", "Crimson Text", serif';
     ctx.fillText("“", paddingX - 10, paddingY - 20);
 
-    // Main quote
     ctx.fillStyle = "#111827";
     ctx.font = '26px "DM Serif Text", "Crimson Text", serif';
     ctx.textBaseline = "top";
 
-    let nextY = wrapText(ctx, quote, paddingX, paddingY, maxTextWidth, 36);
+    let nextY = wrapText(
+      ctx,
+      quote,
+      paddingX,
+      paddingY,
+      maxTextWidth,
+      36
+    );
 
-    // -------- Author --------
     ctx.font = '18px "Inter", system-ui, sans-serif';
     ctx.fillStyle = "#6b7280";
     ctx.fillText(`— ${author}`, paddingX, nextY + 10);
 
-    // -------- Small footer tag --------
     ctx.font = '14px "Inter", system-ui, sans-serif';
     ctx.fillStyle = "#9ca3af";
     const footerText = "Saved from Quotify Notes";
@@ -782,7 +915,6 @@ async function copyAsImage() {
       cardY + cardH - 40
     );
 
-    // -------- Convert canvas to Blob --------
     const blob = await new Promise((resolve, reject) => {
       canvas.toBlob((b) => {
         if (b) resolve(b);
@@ -790,13 +922,15 @@ async function copyAsImage() {
       }, "image/png");
     });
 
-    // -------- Try to copy to clipboard as image --------
-    if (navigator.clipboard && navigator.clipboard.write && window.ClipboardItem) {
+    if (
+      navigator.clipboard &&
+      navigator.clipboard.write &&
+      window.ClipboardItem
+    ) {
       const item = new ClipboardItem({ "image/png": blob });
       await navigator.clipboard.write([item]);
       showToast("Quote card copied as image 📷");
     } else {
-      // Fallback: download the image instead
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -815,42 +949,54 @@ async function copyAsImage() {
 
 // ============ APPLICATION AND REFLECTION SYSTEM ============
 
-/**
- * Generate application ideas and reflection prompts based on quote content
- * @param {string} quoteText - The quote text to analyze for prompts
- */
 function generateApplicationAndReflection(quoteText) {
   if (!quoteText) {
-    quoteApplicationEl.textContent = "Reflect on what this means to you personally.";
+    quoteApplicationEl.textContent =
+      "Reflect on what this means to you personally.";
     reflectionListEl.innerHTML = "";
     return;
   }
 
   const lower = quoteText.toLowerCase();
-  let mainIdea = "Use this quote as a lens: what would change if you actually believed this today?";
+  let mainIdea =
+    "Use this quote as a lens: what would change if you actually believed this today?";
   let prompts = [
     "Rewrite the quote in your own words in one sentence.",
     "Think of one decision this week that would look different if you applied this idea.",
     "Pick one tiny action (5–10 minutes) that matches this quote and schedule it.",
   ];
 
-  // Customize prompts based on quote content
-  if (lower.includes("success") || lower.includes("failure") || lower.includes("goal")) {
-    mainIdea = "Treat this quote as a new rule for how you approach goals: less obsession with outcome, more focus on repeated small actions.";
+  if (
+    lower.includes("success") ||
+    lower.includes("failure") ||
+    lower.includes("goal")
+  ) {
+    mainIdea =
+      "Treat this quote as a new rule for how you approach goals: less obsession with outcome, more focus on repeated small actions.";
     prompts = [
       "Choose one goal you're stuck on and describe why in 1–2 lines.",
       "Break it into the smallest next step you can do in under 15 minutes.",
       "Add that step to today's calendar and actually do it.",
     ];
-  } else if (lower.includes("fear") || lower.includes("courage") || lower.includes("risk")) {
-    mainIdea = "Let this quote be a gentle push to move toward something slightly uncomfortable but important.";
+  } else if (
+    lower.includes("fear") ||
+    lower.includes("courage") ||
+    lower.includes("risk")
+  ) {
+    mainIdea =
+      "Let this quote be a gentle push to move toward something slightly uncomfortable but important.";
     prompts = [
       "Write down one thing you're avoiding because it feels scary or uncertain.",
       "Write the worst realistic outcome and the best realistic outcome.",
       "Commit to a tiny experiment that moves you toward the best outcome.",
     ];
-  } else if (lower.includes("time") || lower.includes("day") || lower.includes("today")) {
-    mainIdea = "Use this quote to audit your day: where is your time going versus where you say your priorities are?";
+  } else if (
+    lower.includes("time") ||
+    lower.includes("day") ||
+    lower.includes("today")
+  ) {
+    mainIdea =
+      "Use this quote to audit your day: where is your time going versus where you say your priorities are?";
     prompts = [
       "List the top three things you say matter to you.",
       "Look at your last 3 days: where did most of your free time actually go?",
@@ -858,7 +1004,6 @@ function generateApplicationAndReflection(quoteText) {
     ];
   }
 
-  // Update UI with generated content
   quoteApplicationEl.textContent = mainIdea;
   reflectionListEl.innerHTML = "";
   prompts.forEach((p) => {
@@ -870,14 +1015,10 @@ function generateApplicationAndReflection(quoteText) {
 
 // ============ JOURNALING SYSTEM ============
 
-/**
- * Load journal entries from localStorage
- * @returns {Object} - Journal entries object
- */
 function loadJournalEntries() {
   const raw = localStorage.getItem(JOURNAL_KEY);
   if (!raw) return {};
-  
+
   try {
     return JSON.parse(raw);
   } catch {
@@ -885,23 +1026,14 @@ function loadJournalEntries() {
   }
 }
 
-/**
- * Save journal entries to localStorage
- * @param {Object} entries - Journal entries object to save
- */
 function saveJournalEntries(entries) {
   localStorage.setItem(JOURNAL_KEY, JSON.stringify(entries));
 }
 
-/**
- * Load a specific journal entry for the current quote
- * @param {string} quote - The quote text
- * @param {string} author - The author name
- */
 function loadJournalEntry(quote, author) {
   const entries = loadJournalEntries();
   const key = `${quote}|${author}`;
-  
+
   if (entries[key]) {
     reflectionInputEl.value = entries[key].note;
   } else {
@@ -909,30 +1041,26 @@ function loadJournalEntry(quote, author) {
   }
 }
 
-/**
- * Save the current journal entry
- */
 function saveJournalEntry() {
   if (!currentQuoteObject) {
     showToast("Load a quote first.");
     return;
   }
-  
+
   const note = reflectionInputEl.value.trim();
   if (!note) {
     showToast("Write a note first.");
     return;
   }
-  
+
   const entries = loadJournalEntries();
   const key = `${currentQuoteObject.quote}|${currentQuoteObject.author}`;
-  
-  // Save or update the journal entry
+
   entries[key] = {
     note: note,
-    date: new Date().toISOString()
+    date: new Date().toISOString(),
   };
-  
+
   saveJournalEntries(entries);
   showToast("Note saved ✨");
   renderSavedQuotes();
@@ -940,9 +1068,6 @@ function saveJournalEntry() {
 
 // ============ COPY AND SAVE FUNCTIONALITY ============
 
-/**
- * Copy current quote to clipboard
- */
 async function copyQuoteToClipboard() {
   const text = `"${quoteTextEl.textContent.trim()}" — ${quoteAuthorEl.textContent.trim()}`;
   try {
@@ -954,10 +1079,6 @@ async function copyQuoteToClipboard() {
   }
 }
 
-/**
- * Load saved quotes from localStorage
- * @returns {Array} - Array of saved quote objects
- */
 function loadSavedQuotes() {
   const raw = localStorage.getItem(SAVED_KEY);
   if (!raw) return [];
@@ -969,61 +1090,57 @@ function loadSavedQuotes() {
   }
 }
 
-/**
- * Save quotes array to localStorage
- * @param {Array} list - Array of quote objects to save
- */
 function saveQuotesToStorage(list) {
   localStorage.setItem(SAVED_KEY, JSON.stringify(list));
 }
 
 /**
- * Render all saved quotes to the UI
+ * Render saved quotes, including hover actions:
+ * - X (Twitter)
+ * - Threads
+ * - Save as image
+ * - Copy
+ * - Edit note
+ * - Delete
  */
 function renderSavedQuotes() {
   const list = loadSavedQuotes();
   const journalEntries = loadJournalEntries();
-  
-  // Update saved count display
+
   savedCountEl.textContent = list.length.toString();
   savedQuotesContainer.innerHTML = "";
 
-  // Show empty state if no saved quotes
   if (list.length === 0) {
     const empty = document.createElement("p");
-    empty.textContent = "No saved quotes yet. When something hits you, save it.";
+    empty.textContent =
+      "No saved quotes yet. When something hits you, save it.";
     empty.className = "saved-subtitle";
     savedQuotesContainer.appendChild(empty);
     return;
   }
 
-  // Create a card for each saved quote
   list.forEach((item, index) => {
     const card = document.createElement("article");
     card.className = "saved-card";
 
-    // Quote text
     const q = document.createElement("p");
     q.className = "saved-quote";
     q.textContent = `"${item.quote}"`;
 
-    // Author name
     const a = document.createElement("p");
     a.className = "saved-author";
     a.textContent = `— ${item.author}`;
-    
+
     card.appendChild(q);
     card.appendChild(a);
-    
-    // Add journal entry if exists
+
     const key = `${item.quote}|${item.author}`;
     if (journalEntries[key]) {
       const note = document.createElement("p");
       note.className = "saved-note";
       note.textContent = journalEntries[key].note;
       card.appendChild(note);
-      
-      // Add save date
+
       const date = document.createElement("p");
       date.className = "saved-date";
       const savedDate = new Date(journalEntries[key].date);
@@ -1031,10 +1148,36 @@ function renderSavedQuotes() {
       card.appendChild(date);
     }
 
-    // Add action buttons with icons
     const actions = document.createElement("div");
     actions.className = "saved-actions-card";
-    
+
+    // --- NEW: Share on X (Twitter) ---
+    const twitterBtn = document.createElement("button");
+    twitterBtn.className = "btn subtle small icon";
+    twitterBtn.title = "Share on X";
+    twitterBtn.innerHTML = `<i class="fa-brands fa-x-twitter"></i>`;
+    twitterBtn.addEventListener("click", () => {
+      shareOnTwitter(item.quote, item.author);
+    });
+
+    // --- NEW: Share on Threads ---
+    const threadsBtn = document.createElement("button");
+    threadsBtn.className = "btn subtle small icon";
+    threadsBtn.title = "Share on Threads";
+    threadsBtn.innerHTML = `<i class="fa-brands fa-threads"></i>`;
+    threadsBtn.addEventListener("click", () => {
+      shareOnThreads(item.quote, item.author);
+    });
+
+    // --- NEW: Save as Image ---
+    const imageBtn = document.createElement("button");
+    imageBtn.className = "btn subtle small icon";
+    imageBtn.title = "Save as image";
+    imageBtn.innerHTML = `<i class="fa-regular fa-image"></i>`;
+    imageBtn.addEventListener("click", () => {
+      copyAsImage(item.quote, item.author);
+    });
+
     // Copy button
     const copyBtn = document.createElement("button");
     copyBtn.className = "btn subtle small icon";
@@ -1047,11 +1190,12 @@ function renderSavedQuotes() {
     `;
     copyBtn.addEventListener("click", () => {
       const text = `"${item.quote}" — ${item.author}`;
-      navigator.clipboard.writeText(text)
+      navigator.clipboard
+        .writeText(text)
         .then(() => showToast("Copied to clipboard ✅"))
         .catch(() => showToast("Failed to copy"));
     });
-    
+
     // Edit note button
     const editBtn = document.createElement("button");
     editBtn.className = "btn ghost small icon";
@@ -1063,21 +1207,26 @@ function renderSavedQuotes() {
       </svg>
     `;
     editBtn.addEventListener("click", () => {
-      // If we're currently showing this quote, focus the input
-      if (currentQuoteObject && 
-          currentQuoteObject.quote === item.quote && 
-          currentQuoteObject.author === item.author) {
+      if (
+        currentQuoteObject &&
+        currentQuoteObject.quote === item.quote &&
+        currentQuoteObject.author === item.author
+      ) {
         reflectionInputEl.focus();
         showToast("You can edit your note above");
       } else {
-        // Otherwise, create a quick edit interface
-        const newNote = prompt("Add or edit your note for this quote:", journalEntries[key]?.note || "");
+        const newNote = prompt(
+          "Add or edit your note for this quote:",
+          journalEntries[key]?.note || ""
+        );
         if (newNote !== null) {
           const entries = loadJournalEntries();
           if (newNote.trim()) {
             entries[key] = {
               note: newNote.trim(),
-              date: journalEntries[key]?.date || new Date().toISOString()
+              date:
+                journalEntries[key]?.date ||
+                new Date().toISOString(),
             };
             showToast("Note updated ✨");
           } else if (entries[key]) {
@@ -1089,7 +1238,7 @@ function renderSavedQuotes() {
         }
       }
     });
-    
+
     // Delete button
     const deleteBtn = document.createElement("button");
     deleteBtn.className = "btn danger small icon";
@@ -1101,45 +1250,46 @@ function renderSavedQuotes() {
       </svg>
     `;
     deleteBtn.addEventListener("click", () => {
-      if (confirm("Are you sure you want to delete this saved quote?")) {
+      if (
+        confirm(
+          "Are you sure you want to delete this saved quote?"
+        )
+      ) {
         const saved = loadSavedQuotes();
         saved.splice(index, 1);
         saveQuotesToStorage(saved);
-        
-        // Also remove journal entry if exists
+
         const entries = loadJournalEntries();
         if (entries[key]) {
           delete entries[key];
           saveJournalEntries(entries);
         }
-        
+
         renderSavedQuotes();
         showToast("Quote deleted");
       }
     });
-    
-    // Add buttons to card
+
+    // Append in a nice order
+    actions.appendChild(twitterBtn);
+    actions.appendChild(threadsBtn);
+    actions.appendChild(imageBtn);
     actions.appendChild(copyBtn);
     actions.appendChild(editBtn);
     actions.appendChild(deleteBtn);
+
     card.appendChild(actions);
-    
-    // Add card to container
     savedQuotesContainer.appendChild(card);
   });
 }
 
-/**
- * Save the current quote to localStorage
- */
 function handleSaveCurrentQuote() {
   if (!currentQuoteObject) {
     showToast("Load a quote first.");
     return;
   }
   const list = loadSavedQuotes();
-  
-  // Check if quote is already saved
+
   const exists = list.some(
     (item) =>
       item.quote === currentQuoteObject.quote &&
@@ -1149,8 +1299,7 @@ function handleSaveCurrentQuote() {
     showToast("Already saved.");
     return;
   }
-  
-  // Add to saved quotes
+
   list.push({
     quote: currentQuoteObject.quote,
     author: currentQuoteObject.author || "Unknown",
@@ -1162,150 +1311,131 @@ function handleSaveCurrentQuote() {
 
 // ============ SAVED QUOTES MANAGEMENT ============
 
-/**
- * Clear all saved quotes after confirmation
- */
 function clearAllSavedQuotes() {
   const list = loadSavedQuotes();
   if (list.length === 0) {
     showToast("No saved quotes to clear");
     return;
   }
-  
-  if (confirm(`Are you sure you want to delete all ${list.length} saved quotes? This cannot be undone.`)) {
+
+  if (
+    confirm(
+      `Are you sure you want to delete all ${list.length} saved quotes? This cannot be undone.`
+    )
+  ) {
     saveQuotesToStorage([]);
-    // Also clear all journal entries
     localStorage.setItem(JOURNAL_KEY, JSON.stringify({}));
     renderSavedQuotes();
     showToast("All saved quotes cleared");
   }
 }
 
-/**
- * Export saved quotes as a text file
- */
 function exportSavedQuotes() {
   const list = loadSavedQuotes();
   const journalEntries = loadJournalEntries();
-  
+
   if (list.length === 0) {
     showToast("No saved quotes to export");
     return;
   }
-  
-  // Create formatted text document
+
   let exportText = "Quotify Notes Export\n";
   exportText += "====================\n\n";
   exportText += `Exported on: ${new Date().toLocaleDateString()}\n`;
   exportText += `Total quotes: ${list.length}\n\n`;
-  
-  // Add each quote to the export
+
   list.forEach((item, index) => {
     exportText += `Quote ${index + 1}:\n`;
     exportText += `"${item.quote}"\n`;
     exportText += `— ${item.author}\n`;
-    
+
     const key = `${item.quote}|${item.author}`;
     if (journalEntries[key]) {
       exportText += `My note: ${journalEntries[key].note}\n`;
-      exportText += `Saved on: ${new Date(journalEntries[key].date).toLocaleDateString()}\n`;
+      exportText += `Saved on: ${new Date(
+        journalEntries[key].date
+      ).toLocaleDateString()}\n`;
     }
-    
+
     exportText += "\n" + "=".repeat(40) + "\n\n";
   });
-  
-  // Create and trigger download
-  const blob = new Blob([exportText], { type: 'text/plain' });
+
+  const blob = new Blob([exportText], { type: "text/plain" });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
+  const a = document.createElement("a");
   a.href = url;
-  a.download = `quotify-notes-${new Date().toISOString().split('T')[0]}.txt`;
+  a.download = `quotify-notes-${
+    new Date().toISOString().split("T")[0]
+  }.txt`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  
+
   showToast("Quotes exported successfully");
 }
 
 // ============ SETTINGS PANEL MANAGEMENT ============
 
-/**
- * Toggle settings panel visibility
- */
 function toggleSettingsPanel() {
   settingsPanel.classList.toggle("hidden");
-  
-  // Create or remove overlay
-  let overlay = document.querySelector('.overlay');
+
+  let overlay = document.querySelector(".overlay");
   if (!overlay) {
-    overlay = document.createElement('div');
-    overlay.className = 'overlay';
+    overlay = document.createElement("div");
+    overlay.className = "overlay";
     document.body.appendChild(overlay);
-    
-    overlay.addEventListener('click', () => {
-      settingsPanel.classList.add('hidden');
-      overlay.classList.remove('show');
+
+    overlay.addEventListener("click", () => {
+      settingsPanel.classList.add("hidden");
+      overlay.classList.remove("show");
     });
   }
-  
-  if (settingsPanel.classList.contains('hidden')) {
-    overlay.classList.remove('show');
+
+  if (settingsPanel.classList.contains("hidden")) {
+    overlay.classList.remove("show");
   } else {
-    overlay.classList.add('show');
+    overlay.classList.add("show");
   }
 }
 
 // ============ EVENT LISTENERS ============
 
-// Quote action events
 newQuoteBtn.addEventListener("click", fetchQuote);
 headerRandomBtn.addEventListener("click", fetchQuote);
 copyQuoteBtn.addEventListener("click", copyQuoteToClipboard);
 saveLocalBtn.addEventListener("click", handleSaveCurrentQuote);
 
-// Journaling events
 saveReflectionBtn.addEventListener("click", saveJournalEntry);
 
-// Settings events
 settingsToggle.addEventListener("click", toggleSettingsPanel);
 closeSettings.addEventListener("click", toggleSettingsPanel);
 fontStyleSelect.addEventListener("change", applySettings);
 textSizeSelect.addEventListener("change", applySettings);
 themeSelect.addEventListener("change", applySettings);
 
-// Quote analysis events
 toggleAnalysisBtn.addEventListener("click", toggleAnalysis);
-shareTwitterBtn.addEventListener("click", shareOnTwitter);
-shareThreadsBtn.addEventListener("click", shareOnThreads);
-copyAsImageBtn.addEventListener("click", copyAsImage);
 
-// Saved quotes actions
+// Wrap to avoid passing event into our functions as first param
+shareTwitterBtn.addEventListener("click", () => shareOnTwitter());
+shareThreadsBtn.addEventListener("click", () => shareOnThreads());
+copyAsImageBtn.addEventListener("click", () => copyAsImage());
+
 clearAllSavedBtn.addEventListener("click", clearAllSavedQuotes);
 exportSavedBtn.addEventListener("click", exportSavedQuotes);
 
-// Close settings with Escape key
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && !settingsPanel.classList.contains('hidden')) {
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !settingsPanel.classList.contains("hidden")) {
     toggleSettingsPanel();
   }
 });
 
 // ============ APPLICATION INITIALIZATION ============
 
-/**
- * Initialize the application when the page loads
- */
 function initApp() {
-  // Load user settings
   loadSettings();
-  
-  // Render any saved quotes
   renderSavedQuotes();
-  
-  // Fetch the first quote
   fetchQuote();
 }
 
-// Start the application
 initApp();

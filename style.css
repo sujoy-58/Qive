@@ -694,6 +694,46 @@ body {
   gap: 0.5rem;
 }
 
+
+/* Generic muted helper text (optional, used by the read more link) */
+.muted {
+  color: var(--text-muted);
+}
+
+/* Author "Read more" link */
+.author-read-more {
+  margin-top: 0.4rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+
+  font-size: 0.78rem;
+  text-decoration: none;
+  color: var(--text-soft);
+
+  padding: 0.1rem 0;
+  border-bottom: 1px dashed rgba(148, 163, 184, 0.6);
+  cursor: pointer;
+
+  transition: color var(--transition-fast), border-color var(--transition-fast), border-bottom-style var(--transition-fast), opacity var(--transition-fast);
+}
+
+/* Tiny arrow icon using pure CSS so you don't need an extra element */
+.author-read-more::after {
+  content: "↗";
+  font-size: 0.7rem;
+  opacity: 0.7;
+}
+
+/* Hover state – a bit stronger but still subtle */
+.author-read-more:hover {
+  color: var(--accent-strong);
+  border-bottom-color: var(--accent-strong);
+  border-bottom-style: solid;
+  opacity: 0.95;
+}
+
+
 /* ============ BUTTON STYLES ============ */
 .btn {
   border-radius: var(--radius-pill);
@@ -844,6 +884,9 @@ body {
   background: transparent;
   color: #dc2626;
   border-color: #fecaca;
+  display: flex;
+    align-items: center;
+    gap: 0.3rem;
 }
 
 [data-theme="dark"] .btn.danger {
@@ -854,6 +897,7 @@ body {
   background: #dc2626;
   color: white;
 }
+
 
 /* ============ CONTEXT PANEL STYLES ============ */
 .context-panel {
@@ -1131,6 +1175,10 @@ body {
   color: var(--text-soft);
   margin-top: 0.3rem;
 }
+
+
+
+
 
 /* ============ TOAST NOTIFICATION STYLES ============ */
 .toast {
