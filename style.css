@@ -735,7 +735,7 @@ body {
 }
 
 .btn.primary:hover {
-  transform: translateY(-1px);
+  scale: 1.03;
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.25);
 }
 
@@ -827,7 +827,7 @@ body {
 
 /* Small button variant */
 .btn.small {
-  padding: 0.3rem 0.7rem;
+  padding: 0.5rem 0.7rem;
   font-size: 0.75rem;
 }
 
@@ -1249,15 +1249,22 @@ body {
   .page {
     padding-inline: 0.9rem;
   }
-  
-  .header-right {
+
+  .header{
     flex-direction: column;
-    gap: 0.3rem;
+    align-items: flex-start;
+    gap: 0.7rem;
   }
+  
+  /* .header-right {
+    flex-direction: colrumn;
+    gap: 0.3rem;
+  } */
   
   .header-btn {
     font-size: 0.75rem;
     padding: 0.4rem 0.8rem;
+    
   }
   
   .saved-grid {

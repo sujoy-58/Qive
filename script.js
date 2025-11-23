@@ -1,7 +1,31 @@
 // ============ CONFIG ============
 const QUOTES_API_KEY = "tBEAzH8EoZjhGeoVP5qnEQ==YJ30wWOBGVGjmYgc"; // <-- put your API Ninjas key
-const QUOTES_API_URL = "https://api.api-ninjas.com/v1/quotes";
+const QUOTES_API_URL = "https://api.api-ninjas.com/v2/quotes";
 const WIKI_API_BASE = "https://en.wikipedia.org/api/rest_v1/page/summary/";
+
+// Only these categories, random between them on each fetch (v2 behavior)
+const QUOTE_CATEGORIES = [
+  "wisdom",
+  "philosophy",
+  "life",
+  "truth",
+  "inspirational",
+  "relationships",
+  "love",
+  "faith",
+  "humor",
+  "success",
+  "courage",
+  "happiness",
+  "art",
+  "writing",
+  "fear",
+  "nature",
+  "time",
+  "freedom",
+  "death",
+  "leadership",
+];
 
 // ============ DOM ELEMENT REFERENCES ============
 // Quote display elements
@@ -75,8 +99,6 @@ const FONT_CLASS_MAP = {
   kalam: "font-kalam",        // Kalam
   comic: "font-comic"         // Comic Relief
 };
-
-
 
 /**
  * Apply a font style key by updating body classes
@@ -250,7 +272,6 @@ function loadSettings() {
   }
 }
 
-
 /**
  * Save current settings to localStorage
  */
@@ -263,7 +284,6 @@ function saveSettings() {
 
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 }
-
 
 /**
  * Apply current settings to the UI
@@ -290,11 +310,11 @@ function applySettings() {
   saveSettings();
 }
 
-
 // ============ QUOTE FETCHING AND DISPLAY ============
 
 /**
- * Fetch a new quote from the primary API (API Ninjas)
+ * Fetch a new quote from the primary API (API Ninjas v2), using
+ * ONLY the allowed categories and picking one at random.
  */
 async function fetchQuote() {
   if (isLoading) return;
@@ -303,8 +323,15 @@ async function fetchQuote() {
   isUsingFallbackAPI = false;
 
   try {
-    // Fetch from primary API
-    const url = QUOTES_API_URL;
+    // pick a random category from the fixed list
+    const randomCategory =
+      QUOTE_CATEGORIES[Math.floor(Math.random() * QUOTE_CATEGORIES.length)];
+
+    // v2 uses ?categories= (plural)
+    const url = `${QUOTES_API_URL}?categories=${encodeURIComponent(
+      randomCategory
+    )}`;
+
     const res = await fetch(url, {
       method: "GET",
       headers: {
@@ -322,19 +349,26 @@ async function fetchQuote() {
     }
 
     const quoteObj = data[0];
-    currentQuoteObject = quoteObj;
+
+    // If API doesn't send category back, make sure we keep our random one
+    const finalQuoteObj = {
+      ...quoteObj,
+      category: quoteObj.category || randomCategory,
+    };
+
+    currentQuoteObject = finalQuoteObj;
 
     // Update UI with new quote
-    renderQuote(quoteObj);
+    renderQuote(finalQuoteObj);
     updateQuoteCount();
 
     // Fetch additional context and generate reflections
-    const authorName = quoteObj.author;
+    const authorName = finalQuoteObj.author;
     await fetchAuthorContext(authorName);
-    generateApplicationAndReflection(quoteObj.quote);
-    
+    generateApplicationAndReflection(finalQuoteObj.quote);
+
     // Load any existing journal entry for this quote
-    loadJournalEntry(quoteObj.quote, authorName);
+    loadJournalEntry(finalQuoteObj.quote, authorName);
   } catch (err) {
     console.error("Primary API failed:", err);
     // Try fallback API if primary fails
@@ -403,7 +437,7 @@ function renderQuote(quoteObj) {
 
   // Update author avatar initials
   const initials = initialsFromName(author || "Unknown");
-  authorInitialsEl.textContent = initials || "QN";
+  authorInitialsEl.textContent = initials || "QV";
   
   // Analyze the quote for insights
   analyzeQuote(quote);
@@ -636,9 +670,6 @@ function shareOnThreads() {
 }
 
 /**
- * Copy quote as a text-based "image" representation
- */
-/**
  * Copy quote as a designed image (PNG) to clipboard.
  * Falls back to downloading the image if clipboard image is not supported.
  */
@@ -781,7 +812,6 @@ async function copyAsImage() {
     showToast("Couldn't copy as image 😕");
   }
 }
-
 
 // ============ APPLICATION AND REFLECTION SYSTEM ============
 
